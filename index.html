@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Área do triângulo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* VOICE everyday: ferramenta de sala de aula, clara na TV/projetor
+   IDEA um quadro quadriculado de professor, onde as figuras se montam passo a passo
+   PICTURE o próprio quadro interativo, grande, com pontos arrastáveis
+   COLOUR azul-ardósia fixo; quadro mais escuro; laranja, verde e amarelo para as figuras
+   TYPE Lexend (legível para alunos)
+   LAYOUT quadro à esquerda e painel de controles à direita; no celular, quadro em cima e controles embaixo */
+:root{color-scheme:dark;--bg:#3e5068;--bg2:#34445a;--board:#2b384b;--ink:#f1f5fb;--muted:#b8c4d6;--yl:#ffd166;--or:#f4a259;--gr:#5cc8a0;--rd:#ff8a8a}
+*{box-sizing:border-box;min-width:0}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--ink);font:16px/1.5 Lexend,system-ui,"Segoe UI",Roboto,sans-serif;display:flex;flex-direction:column;overflow-x:clip}
+header{display:flex;align-items:center;gap:12px 20px;padding:10px max(16px,2vw);background:var(--bg2);flex-wrap:wrap}
+h1{font-size:20px;margin:0;font-weight:700}
+nav{display:flex;flex-wrap:wrap;margin-left:auto}
+nav button{background:none;color:var(--muted);border:0;border-bottom:3px solid transparent;padding:10px 12px;font:inherit;font-size:15px;cursor:pointer;min-height:44px}
+nav button.on{color:var(--ink);border-bottom-color:var(--yl)}
+nav button:focus-visible,.btn:focus-visible{outline:2px solid var(--yl);outline-offset:2px}
+.fs{background:none;color:var(--muted);border:1px solid rgba(255,255,255,.25);border-radius:6px;padding:6px 10px;font:inherit;font-size:14px;cursor:pointer;min-height:36px}
+main{flex:1;display:flex;gap:14px;padding:14px max(16px,1.5vw);min-height:0}
+#board{flex:1;background:var(--board);border-radius:8px;min-height:380px;display:flex;overflow:hidden;touch-action:none}
+#board svg{width:100%;height:100%;display:block;user-select:none}
+aside{width:340px;flex:none;background:var(--bg2);border-radius:8px;padding:14px 16px;overflow:auto}
+aside h2{font-size:19px;margin:0 0 4px;line-height:1.2}
+.sub{color:var(--muted);font-size:14px;margin:0 0 10px}
+.sl{display:flex;justify-content:space-between;font-size:15px;margin:10px 0 2px}
+.sl b{color:var(--yl)}
+input[type=range]{width:100%;accent-color:var(--yl);height:28px}
+.tg{display:flex;align-items:center;gap:10px;font-size:15px;padding:6px 0;cursor:pointer;user-select:none}
+.tg input{width:20px;height:20px;accent-color:var(--yl);flex:none}
+.btn{background:rgba(255,255,255,.1);color:var(--ink);border:1px solid rgba(255,255,255,.2);border-radius:6px;padding:8px 12px;font:inherit;font-size:14px;cursor:pointer;margin:6px 6px 2px 0;min-height:40px}
+.btn:hover{background:rgba(255,255,255,.18)}
+.box{background:rgba(0,0,0,.2);border-radius:6px;padding:10px 12px;margin:12px 0;font-size:15px;line-height:1.55}
+.box.q{border-left:3px solid var(--yl)}
+.box h3{margin:0 0 6px;font-size:14px;font-weight:600;color:var(--muted)}
+.box p{margin:4px 0}
+.chk div{display:flex;justify-content:space-between;gap:10px;padding:2px 0}
+.ok{color:var(--gr);font-weight:600;white-space:nowrap}.no{color:var(--rd);font-weight:600}
+.warn{border-left:3px solid var(--rd)}
+.calc p{font-variant-numeric:tabular-nums}
+.calc .fin{color:var(--yl);font-weight:600}
+footer{text-align:center;font-size:13px;color:var(--muted);padding:4px 0 8px}
+@media(max-width:860px){main{flex-direction:column}aside{width:auto}#board{min-height:60vh;flex:none}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Área do triângulo</h1>
+  <nav id="nav">
+    <button data-s="1">1 · Retomada</button>
+    <button data-s="2">2 · Área do retângulo</button>
+    <button data-s="3">3 · Triângulo qualquer</button>
+  </nav>
+  <button class="fs" id="fs">Tela cheia</button>
+</header>
+<main>
+  <div id="board"></div>
+  <aside id="panel"></aside>
+</main>
+<footer>Criado por DAV · Desenvolvido com Claude</footer>
+<script>
+{
+const NS='http://www.w3.org/2000/svg',S=56,ML=1.5,MR=0.6,MT=0.7,MB=1.5;
+const board=document.getElementById('board'),panel=document.getElementById('panel');
+const fmt=v=>{const r=Math.round(v*10)/10;return (Number.isInteger(r)?String(r):r.toFixed(1)).replace('.',',')};
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const cen=ps=>[ps.reduce((a,p)=>a+p[0],0)/ps.length,ps.reduce((a,p)=>a+p[1],0)/ps.length];
+const rot=(u,d)=>{const r=d*Math.PI/180;return [u[0]*Math.cos(r)-u[1]*Math.sin(r),u[0]*Math.sin(r)+u[1]*Math.cos(r)]};
+const DEF1=[[1,1],[7,1],[8,4],[2,5]];
+const st={scene:1,
+ s1:{P:DEF1.map(p=>p.slice()),ang:true,lados:false,cls:false},
+ s2:{b:5,h:3,contar:false,area:false,diag:false,tarea:false},
+ s3:{b:8,h:4,px:3,alt:false,aux:false,rarea:false,tarea:false,calc:false}};
+const DOM={1:[0,10,0,7],2:[0,11,0,9],3:[0,11,0,9]};
+let svg,view,drag=null;
+
+function X(x){return (x-view[0]+ML)*S}
+function Y(y){return (view[3]-y+MT)*S}
+function el(t,a){const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);svg.appendChild(e);return e}
+function poly(ps,a){return el('polygon',{points:ps.map(p=>X(p[0])+','+Y(p[1])).join(' '),'stroke-linejoin':'round',...a})}
+function pline(ps,a){return el('polyline',{points:ps.map(p=>X(p[0])+','+Y(p[1])).join(' '),fill:'none',...a})}
+function line(p,q,a){return el('line',{x1:X(p[0]),y1:Y(p[1]),x2:X(q[0]),y2:Y(q[1]),...a})}
+function txt(x,y,s,a={}){const e=el('text',{x:X(x),y:Y(y),'text-anchor':'middle','dominant-baseline':'central','font-size':21,'font-weight':600,'font-family':'Lexend,system-ui,sans-serif',fill:'#f1f5fb',stroke:'#2b384b','stroke-width':5,'paint-order':'stroke','stroke-linejoin':'round',...a});e.textContent=s;return e}
+
+function setup(){
+  view=DOM[st.scene];
+  const W=(view[1]-view[0]+ML+MR)*S,H=(view[3]-view[2]+MT+MB)*S;
+  board.innerHTML='';
+  svg=document.createElementNS(NS,'svg');
+  svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
+  svg.setAttribute('preserveAspectRatio','xMidYMid meet');
+  board.appendChild(svg);
+  svg.addEventListener('pointermove',move);
+  svg.addEventListener('pointerup',()=>drag=null);
+  svg.addEventListener('pointercancel',()=>drag=null);
+}
+function grid(){
+  const [x0,x1,y0,y1]=view,sm={'font-size':15,'font-weight':400,fill:'#9fb0c8'};
+  for(let x=x0;x<=x1;x++){line([x,y0],[x,y1],{stroke:x===0?'rgba(255,255,255,.35)':'rgba(255,255,255,.13)','stroke-width':x===0?2:1});txt(x,y0-0.4,String(x),sm)}
+  for(let y=y0;y<=y1;y++){line([x0,y],[x1,y],{stroke:y===0?'rgba(255,255,255,.35)':'rgba(255,255,255,.13)','stroke-width':y===0?2:1});txt(x0-0.45,y,String(y),sm)}
+}
+function handle(p,id){
+  el('circle',{cx:X(p[0]),cy:Y(p[1]),r:10,fill:'#ffd166',stroke:'#2b384b','stroke-width':3,'pointer-events':'none'});
+  const h=el('circle',{cx:X(p[0]),cy:Y(p[1]),r:28,fill:'transparent',style:'cursor:grab'});
+  h.addEventListener('pointerdown',e=>{drag=id;svg.setPointerCapture(e.pointerId);e.preventDefault()});
+}
+function move(e){
+  if(drag===null)return;
+  const pt=svg.createSVGPoint();pt.x=e.clientX;pt.y=e.clientY;
+  const q=pt.matrixTransform(svg.getScreenCTM().inverse());
+  const x=Math.round(q.x/S-ML+view[0]),y=Math.round(view[3]+MT-q.y/S);
+  DRAG[st.scene](drag,x,y);
+}
+function rightMark(v,u1,u2,r=0.4){const a=[v[0]+u1[0]*r,v[1]+u1[1]*r],b=[v[0]+u2[0]*r,v[1]+u2[1]*r];pline([a,[a[0]+u2[0]*r,a[1]+u2[1]*r],b],{stroke:'#ffd166','stroke-width':2.5})}
+const segX=(p1,p2,p3,p4)=>{const d=(a,b,c)=>(b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0]);return d(p1,p2,p3)*d(p1,p2,p4)<0&&d(p3,p4,p1)*d(p3,p4,p2)<0};
+
+/* ---------- Cena 1 ---------- */
+function analyse1(){
+  const P=st.s1.P;
+  const a2=P.reduce((a,p,i)=>{const q=P[(i+1)%4];return a+p[0]*q[1]-q[0]*p[1]},0);
+  const cross=segX(P[0],P[1],P[2],P[3])||segX(P[1],P[2],P[3],P[0]);
+  const sg=Math.sign(a2)||1,info=[];
+  for(let i=0;i<4;i++){
+    const v=P[i],a=P[(i+3)%4],b=P[(i+1)%4],u1=[a[0]-v[0],a[1]-v[1]],u2=[b[0]-v[0],b[1]-v[1]];
+    const l1=Math.hypot(...u1),l2=Math.hypot(...u2);
+    const dot=u1[0]*u2[0]+u1[1]*u2[1],cr=u2[0]*u1[1]-u2[1]*u1[0];
+    let th=Math.acos(clamp(dot/(l1*l2),-1,1))*180/Math.PI;
+    if(sg*cr<0)th=360-th;
+    info.push({v,u1:[u1[0]/l1,u1[1]/l1],u2:[u2[0]/l2,u2[1]/l2],th,right:dot===0&&sg*cr>0});
+  }
+  const L=P.map((p,i)=>{const q=P[(i+1)%4];return (q[0]-p[0])**2+(q[1]-p[1])**2});
+  const rect=!cross&&a2!==0&&info.every(o=>o.right),sq=rect&&L.every(l=>l===L[0]);
+  return {sg,cross,info,L,rect,sq,deg:a2===0};
+}
+function draw1(){
+  const s=st.s1,P=s.P,A=analyse1();
+  poly(P,{fill:A.cross?'rgba(255,138,138,.15)':'rgba(124,180,255,.22)',stroke:'#e9eef6','stroke-width':3});
+  if(s.ang&&!A.cross&&!A.deg)A.info.forEach(o=>{
+    const bis=rot(o.u2,A.sg*o.th/2);
+    if(o.right){rightMark(o.v,o.u1,o.u2);txt(o.v[0]+bis[0]*0.95,o.v[1]+bis[1]*0.95,'90°',{'font-size':17,fill:'#ffd166'})}
+    else{const pts=[];for(let k=0;k<=24;k++){const d=rot(o.u2,A.sg*o.th*k/24);pts.push([o.v[0]+d[0]*0.55,o.v[1]+d[1]*0.55])}
+      pline(pts,{stroke:'#ffd166','stroke-width':2.5});txt(o.v[0]+bis[0]*1.05,o.v[1]+bis[1]*1.05,Math.round(o.th)+'°',{'font-size':17,fill:'#ffd166'})}
+  });
+  if(s.lados&&!A.cross)P.forEach((p,i)=>{
+    const q=P[(i+1)%4],d=[q[0]-p[0],q[1]-p[1]],l=Math.hypot(...d);if(!l)return;
+    const n=[A.sg*d[1]/l,-A.sg*d[0]/l],L=Math.sqrt(A.L[i]);
+    txt((p[0]+q[0])/2+n[0]*0.45,(p[1]+q[1])/2+n[1]*0.45,Number.isInteger(L)?String(L):'≈ '+fmt(L),{'font-size':17,fill:'#cfe2ff'});
+  });
+  A.info.forEach((o,i)=>{const b=rot(o.u2,A.sg*o.th/2);txt(o.v[0]-b[0]*0.5,o.v[1]-b[1]*0.5,'ABCD'[i],{'font-size':19})});
+  P.forEach((p,i)=>handle(p,i));
+}
+function dyn1(){
+  const A=analyse1(),s=st.s1;
+  if(A.cross)return '<div class="box warn">Os lados estão se cruzando: isso não é um polígono. Arraste os pontos para desfazer o cruzamento.</div>';
+  if(!s.cls)return '';
+  const r3=!A.rect?'<span>—</span>':A.sq?'<span class="ok">Sim → quadrado</span>':'<span class="no">Não</span>';
+  const fim=A.sq?'É um quadrado (e também retângulo e quadrilátero).':A.rect?'É um retângulo (e também quadrilátero).':'É um quadrilátero.';
+  return `<div class="box chk"><h3>Classificação</h3>
+  <div><span>1. Tem quatro lados?</span><span class="ok">Sim → quadrilátero</span></div>
+  <div><span>2. Quatro ângulos retos?</span>${A.rect?'<span class="ok">Sim → retângulo</span>':'<span class="no">Não</span>'}</div>
+  <div><span>3. Quatro lados iguais?</span>${r3}</div>
+  <p class="calc"><span class="fin">${fim}</span></p></div>`;
+}
+function drag1(i,x,y){
+  x=clamp(x,0,10);y=clamp(y,0,7);const P=st.s1.P;
+  if(P[i][0]===x&&P[i][1]===y)return;
+  if(P.some((p,j)=>j!==i&&p[0]===x&&p[1]===y))return;
+  P[i]=[x,y];draw();
+}
+
+/* ---------- Cena 2 ---------- */
+function dims(b,h){
+  txt(b/2,-1.0,'base = '+b,{fill:'#ffd166','font-size':18});
+  txt(-1.05,h/2,'altura = '+h,{fill:'#ffd166','font-size':18,transform:`rotate(-90 ${X(-1.05)} ${Y(h/2)})`});
+}
+function draw2(){
+  const s=st.s2,{b,h}=s,A=[0,0],B=[b,0],C=[b,h],D=[0,h];
+  poly([A,B,C,D],{fill:'rgba(124,180,255,.2)',stroke:'none'});
+  if(s.diag){
+    poly([A,B,C],{fill:'rgba(244,162,89,.55)',stroke:'#f4a259','stroke-width':2.5});
+    poly([A,C,D],{fill:'rgba(92,200,160,.5)',stroke:'#5cc8a0','stroke-width':2.5});
+  }
+  if(s.contar){let k=1;for(let j=h-1;j>=0;j--)for(let i=0;i<b;i++)txt(i+.5,j+.5,String(k++),{'font-size':15,'font-weight':500,fill:'#dbe5f3'})}
+  poly([A,B,C,D],{fill:'none',stroke:'#e9eef6','stroke-width':3});
+  if(s.diag&&s.tarea){const t=fmt(b*h/2);txt(2*b/3,h/3,t,{'font-size':24});txt(b/3,2*h/3,t,{'font-size':24})}
+  if(s.area)txt(b/2,h+0.45,(b===h?'Quadrado':'Retângulo')+': área = '+b*h);
+  dims(b,h);
+}
+function dyn2(){
+  const s=st.s2,{b,h}=s;let o='';
+  if(s.area)o+=`<p>${b===h?'Quadrado: lado × lado':'Retângulo: base × altura'} = ${b} × ${h} = <b>${b*h}</b></p>`;
+  if(s.diag&&s.tarea)o+=`<p class="fin">Cada triângulo = ${b*h} ÷ 2 = ${fmt(b*h/2)}</p>`;
+  return o?`<div class="box calc"><h3>Conta</h3>${o}</div>`:'';
+}
+
+/* ---------- Cena 3 ---------- */
+function draw3(){
+  const s=st.s3,{b,h}=s;s.px=clamp(s.px,0,b);const px=s.px;
+  const A=[0,0],B=[b,0],P=[px,h],H=[px,0],TL=[0,h],TR=[b,h];
+  if(s.aux||s.rarea)poly([A,B,TR,TL],{fill:'none',stroke:'#cdd6e4','stroke-width':2,'stroke-dasharray':'8 6'});
+  if(s.aux){
+    poly([A,P,TL],{fill:'rgba(244,162,89,.2)',stroke:'rgba(244,162,89,.85)','stroke-width':1.5,'stroke-dasharray':'5 5'});
+    poly([B,TR,P],{fill:'rgba(92,200,160,.2)',stroke:'rgba(92,200,160,.85)','stroke-width':1.5,'stroke-dasharray':'5 5'});
+    poly([A,H,P],{fill:'rgba(244,162,89,.6)',stroke:'none'});
+    poly([H,B,P],{fill:'rgba(92,200,160,.55)',stroke:'none'});
+  }else poly([A,B,P],{fill:'rgba(244,162,89,.5)',stroke:'none'});
+  poly([A,B,P],{fill:'none',stroke:'#f1f5fb','stroke-width':3});
+  if(s.alt){
+    line(P,H,{stroke:'#ffd166','stroke-width':3,'stroke-dasharray':'9 6'});
+    rightMark(H,[px<b?1:-1,0],[0,1]);
+    const left=px>b-2.5;
+    txt(px+(left?-0.2:0.2),h/2,'altura = '+h,{'text-anchor':left?'end':'start','font-size':18,fill:'#ffd166'});
+  }
+  if(s.tarea)txt((b+px)/3,h/3,'Triângulo: '+fmt(b*h/2),{'font-size':19});
+  if(s.rarea)txt(b/2,h+1.05,'Retângulo: '+b*h,{'font-size':19,fill:'#cdd6e4'});
+  txt(px+(px>b/2?-0.35:0.35),h+0.4,'P',{'font-size':19,fill:'#ffd166'});
+  txt(b/2,-1.0,'base = '+b,{fill:'#ffd166','font-size':18});
+  handle(P,'P');
+}
+function dyn3(){
+  const s=st.s3,{b,h}=s;if(!s.calc)return '';
+  return `<div class="box calc"><h3>Conta</h3><p>Retângulo = base × altura = ${b} × ${h} = ${b*h}</p><p>Triângulo = metade do retângulo = ${b*h} ÷ 2 = ${fmt(b*h/2)}</p><p class="fin">Área do triângulo = (base × altura) ÷ 2</p></div>`;
+}
+function drag3(id,x){x=clamp(x,0,st.s3.b);if(x!==st.s3.px){st.s3.px=x;draw()}}
+
+const DRAW={1:draw1,2:draw2,3:draw3},DYN={1:dyn1,2:dyn2,3:dyn3},DRAG={1:drag1,2:()=>{},3:drag3};
+function draw(){
+  while(svg.firstChild)svg.removeChild(svg.firstChild);
+  grid();DRAW[st.scene]();
+  const d=document.getElementById('dyn');if(d)d.innerHTML=DYN[st.scene]();
+}
+
+/* ---------- Painéis ---------- */
+const tg=(k,t)=>`<label class="tg"><input type="checkbox" id="c-${k.replace(/\./g,'-')}" data-k="${k}">${t}</label>`;
+const sl=(k,t,a,b)=>`<div class="sl"><span>${t}</span><b id="v-${k.replace(/\./g,'-')}"></b></div><input type="range" id="r-${k.replace(/\./g,'-')}" data-k="${k}" min="${a}" max="${b}" step="1">`;
+const qs=a=>`<div class="box q"><h3>Perguntas para a turma</h3>${a.map(x=>'<p>'+x+'</p>').join('')}</div>`;
+const PANEL={
+1:()=>`<h2>Quadrilátero, retângulo e quadrado</h2><p class="sub">Arraste os pontos amarelos. Eles se encaixam nos cruzamentos da malha.</p>
+${tg('s1.ang','Mostrar ângulos')}${tg('s1.lados','Mostrar medida dos lados')}${tg('s1.cls','Mostrar classificação')}
+<button class="btn" data-a="reset1">Voltar ao início</button><div id="dyn"></div>
+${qs(['Quais pontos eu mexo para todos os ângulos ficarem com 90°?','Agora é um retângulo. O que falta para virar quadrado?','Todo quadrado é retângulo? Todo retângulo é quadrado?'])}`,
+2:()=>`<h2>Área do quadrado e do retângulo</h2><p class="sub">Cada quadradinho da malha vale 1 unidade de área.</p>
+${sl('s2.b','Base',1,10)}${sl('s2.h','Altura',1,8)}
+<button class="btn" data-a="quad">Fazer quadrado (altura = base)</button>
+${tg('s2.contar','Contar os quadradinhos')}${tg('s2.area','Mostrar a área')}${tg('s2.diag','Traçar a diagonal')}${tg('s2.tarea','Mostrar a área dos triângulos')}
+<div id="dyn"></div>
+${qs(['Precisa contar um por um? Tem jeito mais rápido?','A diagonal divide a figura em quê? As duas partes são iguais?','Então qual é a área de cada triângulo?'])}`,
+3:()=>`<h2>Área de um triângulo qualquer</h2><p class="sub">Arraste o ponto P pela linha de cima.</p>
+${sl('s3.b','Base',2,10)}${sl('s3.h','Altura',1,8)}
+${tg('s3.alt','Traçar a altura')}${tg('s3.aux','Mostrar retângulos auxiliares')}${tg('s3.rarea','Mostrar área do retângulo')}${tg('s3.tarea','Mostrar área do triângulo')}${tg('s3.calc','Mostrar a conta')}
+<div id="dyn"></div>
+${qs(['Onde está o ângulo reto?','Que parte de cada retângulo o triângulo ocupa?','Se eu arrastar P, a área muda? Por quê?'])}`
+};
+function getK(k){return k.split('.').reduce((o,p)=>o[p],st)}
+function setK(k,v){const ps=k.split('.'),last=ps.pop();ps.reduce((o,p)=>o[p],st)[last]=v}
+function show(n){
+  st.scene=n;try{location.hash='etapa-'+n}catch(e){}
+  document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',+b.dataset.s===n));
+  panel.innerHTML=PANEL[n]();
+  panel.querySelectorAll('[data-k]').forEach(inp=>{
+    const k=inp.dataset.k,vEl=document.getElementById('v-'+k.replace(/\./g,'-'));
+    if(inp.type==='checkbox')inp.checked=!!getK(k);else{inp.value=getK(k);if(vEl)vEl.textContent=inp.value}
+    inp.addEventListener('input',()=>{
+      if(inp.type==='checkbox')setK(k,inp.checked);else{setK(k,+inp.value);if(vEl)vEl.textContent=inp.value}
+      draw();
+    });
+  });
+  panel.querySelectorAll('[data-a]').forEach(b=>b.addEventListener('click',()=>{
+    const a=b.dataset.a;
+    if(a==='reset1')st.s1.P=DEF1.map(p=>p.slice());
+    if(a==='quad')st.s2.h=Math.min(st.s2.b,8),st.s2.b=st.s2.h;
+    show(st.scene);
+  }));
+  setup();draw();
+}
+document.querySelectorAll('#nav button').forEach(b=>b.addEventListener('click',()=>show(+b.dataset.s)));
+document.getElementById('fs').addEventListener('click',()=>{
+  try{if(document.fullscreenElement)document.exitFullscreen();else document.documentElement.requestFullscreen().catch(()=>{})}catch(e){}
+});
+const m=/etapa-([1-3])/.exec(location.hash||'');
+show(m?+m[1]:1);
+}
+</script>
+</body>
+</html>
